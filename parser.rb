@@ -1,7 +1,3 @@
-require 'nokogiri'
-require 'open-uri'
-require 'awesome_print'
-
 class Parser
 
     def parse
@@ -33,7 +29,7 @@ class Parser
             team_away = nil 
         else
             match_data["record_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
-            match_data["era_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[10].content
+            match_data["era_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[10].content.to_f
         end 
 
         table_home = tables.pop
@@ -41,13 +37,13 @@ class Parser
             team_home = nil
         else
             match_data["record_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
-            match_data["era_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[10].content
+            match_data["era_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[10].content.to_f
         end
 
         tables = preview.css(".x_small_text.border")
 
-        table_away = tables.pop
         table_home = tables.pop
+        table_away = tables.pop
         match_data["OPS_away"], match_data["counter_OPS_away"] = extract_OPS_data table_away
         match_data["OPS_home"], match_data["counter_OPS_home"] = extract_OPS_data table_home
        
