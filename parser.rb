@@ -1,56 +1,68 @@
-#!/usr/bin/env ruby
-
 require 'nokogiri'
 require 'open-uri'
 require 'awesome_print'
-p "start"
 
-def compose_url segment
-    base = "http://www.baseball-reference.com"
-    url = base + segment
-end
+class Parser
 
-home = Nokogiri::HTML(open("http://www.baseball-reference.com/"))
-urls =  Array.new
-home.css("#todays_games a").each do |el| 
-    urls << compose_url(el.attribute("href").value) if el.content =~/Preview/
-end
+    def parse
+        home = Nokogiri::HTML(open("http://www.baseball-reference.com/"))
+        urls =  Array.new
+        home.css("#todays_games a").each do |el| 
+            urls << compose_url(el.attribute("href").value) if el.content =~/Preview/
+        end
 
-today_matches = Hash.new 
+        today_matches = Hash.new 
+
+        urls.each do |url|
+
+        preview = Nokogiri::HTML(open(url))
+
+        # grab and clean the name of the match
+        today_matches[preview.css("h1")[0].content.sub(/,.*/,'')] = Hash.new
+
+        match_data = today_matches[preview.css("h1")[0].content.sub(/,.*/,'')]
+        
+
+        tables = preview.css("#div_")
+
+        # the last table (  = the second ) in the page is the one of the away team
+        table_away = tables.pop
+
+
+        if table_away.css(".blank_table")[1].css("+ tr td")[0].content =~ /never/
+            team_away = nil 
+        else
+            match_data["record_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
+            match_data["era_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[10].content
+        end 
+
+        table_home = tables.pop
+        if table_home.css(".blank_table")[1].css("+ tr td")[0].content =~ /never/
+            team_home = nil
+        else
+            match_data["record_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
+            match_data["era_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[10].content
+        end
+
+        tables = preview.css(".x_small_text.border")
+
+        table_away = tables.pop
+        table_home = tables.pop
+        match_data["OPS_away"], match_data["counter_OPS_away"] = extract_OPS_data table_away
+        match_data["OPS_home"], match_data["counter_OPS_home"] = extract_OPS_data table_home
+       
+        # exit # evita di farlo per ogni match, da togliere dopo debug
+
+        end
+
+        return today_matches
+    end
+
 
 # collect data for each match and return an hash of them (today_matches)
-urls.each do |url|
+ 
 
-    preview = Nokogiri::HTML(open(url))
-
-    # grab and clean the name of the match
-    today_matches[preview.css("h1")[0].content.sub(/,.*/,'')] = Hash.new
-
-    match_data = today_matches[preview.css("h1")[0].content.sub(/,.*/,'')]
-    
-
-    tables = preview.css("#div_")
-
-    # the last table (  = the second ) in the page is the one of the away team
-    table_away = tables.pop
-
-
-    if table_away.css(".blank_table")[1].css("+ tr td")[0].content =~ /never/
-        team_away = nil 
-    else
-        match_data["record_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
-        match_data["era_pitcher_away"] = table_away.css(".blank_table")[1].css("+ tr td")[10].content
-    end 
-
-    table_home = tables.pop
-    if table_home.css(".blank_table")[1].css("+ tr td")[0].content =~ /never/
-        team_home = nil
-    else
-        match_data["record_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[0].next_element.next_element.content
-        match_data["era_pitcher_home"] = table_home.css(".blank_table")[1].css("+ tr td")[10].content
-    end 
-    
-    
+    private
 
     def extract_OPS_data(table)
         rows = table.css("tr")
@@ -77,17 +89,12 @@ urls.each do |url|
         return average, counter
     end
 
-    tables = preview.css(".x_small_text.border")
-
-    table_away = tables.pop
-    table_home = tables.pop
-    match_data["OPS_away"], match_data["counter_OPS_away"] = extract_OPS_data table_away
-    match_data["OPS_home"], match_data["counter_OPS_home"] = extract_OPS_data table_home
-    ap today_matches
-
-    exit # evita di farlo per ogni match, da togliere dopo debug
-
+    def compose_url segment
+        base = "http://www.baseball-reference.com"
+        url = base + segment
+    end
+    # ap today_matches
 
 end
 
-# ap today_matches
+
